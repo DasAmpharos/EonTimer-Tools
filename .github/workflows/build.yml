@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ inputs.git-ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+          - macos
+          - ubuntu
+          - windows
+    runs-on: ${{ matrix.os }}-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+          cache: pip
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build
+        run: pyinstaller EonTimer-Tools.spec
+
+      - name: Get Artifact Name
+        id: artifact
+        shell: bash
+        run: |
+          artifact_name="EonTimer-Tools"
+          if [[ "${{ matrix.os }}" == "windows" ]]; then
+            artifact_name+=".exe"
+          fi
+          echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EonTimer-Tools-${{ matrix.os }}
+          path: dist/${{ steps.artifact.outputs.artifact_name }}
